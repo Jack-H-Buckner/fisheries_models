@@ -1,0 +1,163 @@
+---
+title: "Schnute's method"
+author: "Jack Buckner"
+date: "7/28/2021"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(ggplot2)
+```
+
+## Simple population model 
+
+The dynamics of natrual populations exhibit two characteristic dynamics, exponential growth at low abundnaces, and regulation or stabalization at large abundances. One of the simplest models that captures these two processes is the logistic population growth model, which states that the biomss of a population initailly increases at a rate proportional to the popualtions current biomass after a critical point the rate of change decreases reaching the value of zero at a critical populaiton size K. These assumtptions are captured by equaiton 1
+
+$$
+\dfrac{dB}{dt} = rB(1-B/K).
+$$
+
+We can plot the right hand side of this equation to get a sense for how the size of a popupulaiton governed by these dynamics might change with time. The solid line indicates the rate of populaiton growth. The dotted line show the point of maximum popualtion growth, and the black dot on the x axis shows the point where popualtion growth is zero reflecting the popualtions size at equilibrium. 
+
+```{r}
+r <- 3
+k <- 0.95
+x <- seq(0,1,0.01)
+ggplot(data.frame(x = x, y = r*x*(1-x/k) ), aes(x = x, y = y))+
+  geom_line()+
+  geom_hline(aes(yintercept = 0), linetype = 2)+
+  geom_vline(aes(xintercept = k/2), linetype = 3)+
+  geom_point(aes(x = k, y = 0))+
+  geom_point(aes(x = k/2, y = k*r/4))+
+  xlab("B")+
+  ylab("population growth")+
+  theme_classic()
+```
+
+## Fisheires model
+
+We can construct a simple model of a fishery based on logistic populaiton growth. The simpleset way to do this is to add a variable that represents fishing effort $E$. There are a variaty of ways to measure fishing effort, but as an example $E$ might represent the number of vessels harvesting the stock per day. We can then assme that the rate of catch is proportional to the ammont of effort $E$ and the size of the stock. Although, this assumption is often violoated in real fisheries applicaitons, it is quite useful for our current puroposes. We can add this term to equaiton one and get our model of the fishery
+
+$$
+\dfrac{dB}{dt} = rB(1-B/K) - qEB
+$$
+where q describes the effectiveness of a unit of fishing effort. 
+
+One question we might want to ask about this model is, what is the effect of fishing effort on the population size, and what are th ranges of fishing effort that would be sustainable. We can analyze this by plotting the equilibrium biomass for differnt values of $E$. The equilibrium populatin size is given by setting the right havd side of equation 2 to zero and solving for B. This yields
+
+$$
+0 = rB(1-B/K) - qEB \\
+r(1-B/K) = qE \\
+B = K\left(1-\frac{qE}{r}\right)
+$$
+which is a linear function declining in as $E$ increases. When $E > \frac{r}{q}$ the equilibrium population size is zero indicating that all levels of fishing effort less than this quantity are in a narrow sense sustainable. however, some values will produce larger harvests than others. Because the catch rate is given by $qEB$ we can use equation 3 to solve for the equilibrium catch
+
+$$
+C_{eq} = K\left(qE -\frac{q^2E^2}{r}\right),
+$$
+
+which is a quadratic function of effort, indicating that it increases to a maximum and then declines as effort increases. We can characterise the qulibrium performance of the fishery by plotting catch and abundnace as function of effort. 
+
+```{r}
+q <- 0.5
+E <- seq(0,6.0, 0.01)
+ggplot(data.frame(x = E, y = k*(1-q*E/r)), aes(x = x, y = y))+
+  geom_line()+
+  geom_line(data = data.frame(x = E, y = k*(q*E-q^2*E^2/r)),
+            aes(x = x, y = y),  linetype = 2)+
+  geom_hline(aes(yintercept = 0), linetype = 3)+
+  geom_point(aes(x = r/q, y = 0))+
+  geom_vline(aes(xintercept = r/(2*q)), linetype = 3)+
+  xlab("Effort")+
+  ylab("biomass")+
+  theme_classic()
+```
+
+In the figure above the solid line give the total biomass as a function of fishing effort at equilibrium, the dashed line give the catch rate at equlibrium and the verticle dotted line indicates the point where harvest can be maximized. The point is called the maximum systainable yield, and it is very useful for fisheries scientistis to estimate what the precise value of fishing effort that produces the maximum sustainable yield will be and the amount of catch that should be expected at that point. in the following seciton we will discuss two of these estimation methods.  
+
+## Estimating the maximum sustainable yield. 
+
+The goal of this section will be to determine how to estimate the three parameters of the simple fisheiries model $r$, $K$ and $q$. To do this we need a source of informaiton on the level of fishing effort and biomass of the stock over time. We will assume that fishing effort $E$ can be measured by oberving, intervieing and self reporitng by fishermen and that the catch produced by the fishery over a period of time can also be measured through similar mechanisms. 
+
+Given this informaiton we can derive a quantity that is proportional to the biomass of the stock. Notice that the rate of catch is proportional to fishing effort, Biomass and an unknown, but constant parameter $q$
+
+$$
+\frac{dC}{dt} = qEB.
+$$
+Over a fied period of time the total catch is given by 
+
+$$
+C = \int_{C_{t}}^{C_{t+1}}dC = \int_{t}^{t+1}qEB dt.
+$$
+if we assume that fishing effort and biomass are roubly constant over this period we get 
+
+$$
+C = q\bar{E}\bar{B}
+$$
+where the bar denotes the average value over the priod from $t$ to $t+1$. Rearaning we find that 
+
+$$
+q\bar{B} = \frac{C}{\bar{E}} = \bar{U}.
+$$
+
+This equation gives a new quantity $U$ known as cathc per unit effort that is proportianl to the biomass of the populaiton through the parameter $q$.
+
+From this derivation we have obtained a quantity $\bar{E}$ that describes the amount of fishing effort in a period of time and a quantity $\bar{U}$ that is proportional to the biomass of the population during the same period of time. givne these two quantities we can derive methods to estimate the parameters of the simple fishery model given time series of catch and effort data. 
+
+### Equilibrium methods. 
+
+To start we can derive the relationship between effort $\bar{E}$ and catch per unit effort $\bar{U}$ at equilibrium. This derivation ir reletively straignt forward given the known relationship between biomass and and effort at equilibrium and the relationship between $\bar{U}$ and biomass. If we substitute $qB$ for $U$ and assume that our mesurments are made over a unit time inteval we get
+
+$$
+
+\bar{U} = qK\left(1-\frac{q\bar{E}}{r}\right).
+$$
+This equations indivates that there is a linear relationship between catch and effort at equilibrium. We can rearrange this equation to get a linear regression model
+$$
+\bar{U} = qK-\frac{Kq^2}{r}\bar{E} \\
+\bar{U} = a + b\bar{E} + \epsilon.
+$$
+
+Noteably we cannot use this method to solve for all of the parameters in the fishery model. This equilbrium method allow us to estimate two parameters $a = qK$ and $b = -a\frac{q}{r}$. Although we cannot estimate each of these parameters we can identify the amount of fishing effort and catch that produce the maximum sutainable yeld. 
+
+To start we can evaluate the model on some data of catch and effort that was simulated fromthe simple fisheires model. simply plotting these data show a linear relationhsip between Effort and catch per effort as expected.
+
+```{r}
+dat <- read.csv("~/github/fisheries_models/data/sim_schnute_1.csv")
+ggplot(dat %>% dplyr::mutate(U = C/E), aes(x = E, y = U))+
+  geom_point()+
+  ylim(0,0.6)+
+  xlim(0,6)+
+  theme_classic()
+```
+
+Next we can fit a linear regression equaiton to these data and use the output to solve for the optimal levels of fishing effort. 
+
+```{r}
+dat <- read.csv("~/github/fisheries_models/data/sim_schnute_1.csv") %>%
+  dplyr::mutate(U = C/E)
+summary(lm(data = dat, U ~ E))
+```
+This regression produced an estimated value of $a = qK = 0.50 \pm 0.005$ and a value of $b = -\frac{q^2K}{r} = -0.0813$. To find the optimum level of fishing effort we can observe that this value occured at one half the level of fihing effort that reduced the populaiton size to zero. This quantity is one half the x intercept of the regression equation produced by our model solving we find 
+
+$$
+0 = a + b*E_{max} \\
+E_{max} = \frac{-a}{b}\\
+E_{max} = 6.15 \\
+E_{MSY} = \frac{E_{max}}{2} \approx 3.
+$$
+We can also solve for 
+
+
+
+
+
+
+
+
+
+
+
+
+
