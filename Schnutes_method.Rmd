@@ -8,6 +8,7 @@ output: html_document
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(echo = TRUE)
 library(ggplot2)
+library(dplyr)
 ```
 
 ## Simple population model 
@@ -147,17 +148,192 @@ E_{max} = \frac{-a}{b}\\
 E_{max} = 6.15 \\
 E_{MSY} = \frac{E_{max}}{2} \approx 3.
 $$
-We can also solve for 
+We can also solve for the maximum sustainable catch, by finding the value of CPUE at $E_{MSY}$ and dividng by $E_{MSY}$
+
+$$
+E_{MSY}  \approx 3.\\
+U_{MSY} = a + bE_{MSY}\\
+U_{MSY} = 0.5 - 0.0813*3\\
+U_{MSY} = 0.256\\
+C_{MSY} = 0.256 * E_{MSY} \approx 0.75.
+$$
+
+We can visualize these results by reproducing the plots showing the equilibrium effect of fishig effort on catch and biomass 
+
+```{r}
+dat <- read.csv("~/github/fisheries_models/data/sim_schnute_1.csv")
+x <- seq(0,6.2,0.01)
+dat_quad <- data.frame(E = x, C = 0.503*x -0.0813*x^2)
+ggplot(dat %>% dplyr::mutate(U = C/E), aes(x = E, y = U))+
+  geom_point()+
+  geom_point(aes(x = 6.17, y = 0), size = 3)+
+  geom_hline(aes(yintercept = 0), linetype = 3)+
+  geom_point(aes(x = E, y = C), shape = 1)+
+  geom_line(data = dat_quad, aes(x = E, y = C), linetype = 2, size = 0.25)+
+  geom_abline(aes(intercept = 0.503, slope = -0.0813), linetype = 2)+
+  geom_vline(aes(xintercept  = 3))+
+  geom_point(aes(x = 3, y = 0.777), size = 3)+
+  ylim(0,0.8)+
+  xlim(0,6.5)+
+  theme_classic()
+```
+
+For the data set used in the previous example the method was able to recover the key parameters quite well. The true value of $E_{MSY}$ used to generate the data set was 3, very close to the value predicted by the model. This happened because the rate at which fishing effort was increased was slow reletive to the rate of growth of the population. This may not always be the case. Suppose the populations initial size was much larger and its rate of growth much slower. This situation might be characteried by the diagram below that shows large equilibrim populatin sizes by only small equilibrium haverst rates due to the slow recovery times of the stock. 
+
+```{r}
+r <- 0.1
+k <- 10
+B0 <- k
+q <- 0.05
+
+E <- seq(0,2.0, 0.01)
+ggplot(data.frame(x = E, y = k*(1-q*E/r)), aes(x = x, y = y))+
+  geom_line()+
+  geom_line(data = data.frame(x = E, y = k*(q*E-q^2*E^2/r)),
+            aes(x = x, y = y),  linetype = 2)+
+  geom_hline(aes(yintercept = 0), linetype = 3)+
+  geom_point(aes(x = r/q, y = 0))+
+  geom_vline(aes(xintercept = r/(2*q)), linetype = 3)+
+  xlab("Effort")+
+  ylab("biomass")+
+  theme_classic()
+```
+We can generate a data set similar to the one from the previous section for this populations by simulating the catch rate as effort is slowly increased. These data are shown below. 
+
+```{r}
+dat <- read.csv("~/github/fisheries_models/data/sim_schnute_2.csv")
+ggplot(dat %>% dplyr::mutate(U = C/E), aes(x = E, y = U))+
+  geom_point()+
+  geom_smooth(method = "lm", color = "black", 
+              alpha = 0.0, linetype = 2,size = 0.5)+
+  geom_line(data=data.frame(x = E, y = q*k*(1-q*E/r)), aes(x = x, y = y))+
+  geom_vline(aes(xintercept = 2.4), linetype = 2)+
+  geom_vline(aes(xintercept = 1), linetype = 1)+
+  geom_text(data = data.frame(x = c(1.3,3.2),
+                              y = c(0.5,0.5),
+                              label = c("E-MSY", "Estimated  E-MSY")),
+            aes(x=x,y=y , label = label))+
+  ylim(0,0.6)+
+  xlim(0,6)+
+  theme_classic()
+```
+The solid line shows the true equilibrium relationship between effort and CPUE while the dotted line show the estimated relationship. The assiciated values of $E_{MSY}$ are indicated by the verticle lines. The estimated value is more than twice the true value and is a higher rate of effort than the fishery can maintain sustainably. This discrpency is caused by the fact that the populaiton is not at equilibrium. The initial size of the population was very large and so CPUE remained high even as the fishery was explied at unsustainable rates because the standing stock could be depeleted for a long period of time. 
+
+### Schnute's method
+
+The assumption that the popualtion can be relaxed by a variaty of methods that are based on the dynamics equations that govern the system. In perticular we can model how chagnes in abundnace over time are effectd by fishing effort and the abundnace of the population at a given time. One of the first of these methods was developed by Schnute. This method starts by deining a differential equation for catch per unit effort $U = qB$ over time. This can be obtained by substiuting $U$ for $B$ into equation 2
+
+$$
+\frac{dU}{dt} = rU - \frac{r}{qK}U^2 - qEU.
+$$
+Dividing both sides by $U$ gives
+
+$$
+ \frac{dU}{Udt} = r - \frac{r}{qK}U - qE.
+$$
+We can then use seperation of variables and integrate
+
+$$
+ \int_{U_{t}}^{U_{t+1}}\frac{dU}{U} =\int_{t}^{t+1} r - \frac{r}{qK}U - qE dt \\
+ log\left(\frac{U_{t+1}}{U_t}\right) =r + \frac{r}{qK}\int_{t}^{t+1} Udt - q\int_{t}^{t+1}Edt.
+$$
+The integral terms on the right hand side give the average value of $U$ and $E$ over the time interval. these vales can be aproximated by the average of their values at the begining and end of the period 
+$$
+ log\left(\frac{U_{t+1}}{U_t}\right) =r + \frac{r}{qK} \frac{U_t+U_{t+1}}{2} - q\frac{E_t+E_{t+1}}{2}.
+$$
+
+This equation provides can be used to estimate the paramter values of the model from a time series of catch and effort data. specically take $y = log(U_{t+1}) - log(U_t)$, $x_1 = \frac{U_t+U_{t+1}}{2}$ and $x_2 = \frac{E_t+E_{t+1}}{2}$. This gives a regression model 
+
+$$
+ y = a + b_1 x_1 +b_2 x_2 + \epsilon
+$$
+where the parameters $a = r$, $b_1 = r/qK$ and $b_2 = q$. 
+
+Lets fit this model to the data from the first example. 
 
 
+```{r}
+source("utils/parametric_boot_strap.R")
+dat <- read.csv("~/github/fisheries_models/data/sim_schnute_1.csv") %>%
+  dplyr::mutate(U = C/E)
+dat$lag_U <- sapply(1:nrow(dat), function(x) dat$U[x+1])
+dat$lag_E <- sapply(1:nrow(dat), function(x) dat$E[x+1])
+
+dat <- dat %>% dplyr::mutate(y = log(lag_U) - log(U) ,
+                             x1 = (U+lag_U)/2,
+                             x2 = (E+lag_E)/2)
+dat <- dat[1:28,]
+model <- parametric_boot_strap(dat, y ~ x1 + x2, 1000)
 
 
+coefs <- model$sample
+q <- -coefs[,3]
+r <- coefs[,1]
+K <- coefs[,1]/(coefs[,3]*coefs[,2])
+
+parms <- cbind(r,K,q)
+pairs(parms)
+```
 
 
+```{r}
+source("utils/parametric_boot_strap.R")
+dat <- read.csv("~/github/fisheries_models/data/sim_schnute_2.csv") %>%
+  dplyr::mutate(U = C/E)
+dat$lag_U <- sapply(1:nrow(dat), function(x) dat$U[x+1])
+dat$lag_E <- sapply(1:nrow(dat), function(x) dat$E[x+1])
+
+dat <- dat %>% dplyr::mutate(y = log(lag_U) - log(U) ,
+                             x1 = (U+lag_U)/2,
+                             x2 = (E+lag_E)/2)
+dat <- dat[1:28,]
+model <- parametric_boot_strap(dat, y ~ x1 + x2, 250)
 
 
+coefs <- model$sample
+q <- -coefs[,3]
+r <- coefs[,1]
+K <- coefs[,1]/(coefs[,3]*coefs[,2])
 
+parms <- cbind(r,K,q)
+pairs(parms)
+```
 
+```{r}
+library(rstan)
+library(shinystan)
 
+dat <- read.csv("~/github/fisheries_models/data/sim_schnute_4.csv") %>%
+  dplyr::mutate(U = C/E)
+dat$lag_U <- sapply(1:nrow(dat), function(x) dat$U[x+1])
+dat$lag_E <- sapply(1:nrow(dat), function(x) dat$E[x+1])
 
+dat <- dat %>% dplyr::mutate(y = log(lag_U) - log(U) ,
+                             x1 = (U+lag_U)/2,
+                             x2 = (E+lag_E)/2)
+dat <- dat[10:99,]
+
+stan_data <- list(
+  N = nrow(dat),
+  y = dat$y,
+  x1 = dat$x1,
+  x2 = dat$x2,
+  
+  alpha_r = 3,
+  beta_r = 2,
+  alpha_q = 2,
+  beta_q = 4,
+  alpha_K = 4,
+  beta_K = 2
+  
+)
+
+fit <- stan(file = "utils/Bayes_Schnute.stan", data = stan_data)
+
+launch_shinystan(fit)
+```
+
+```{r}
+getwd()
+```
 
